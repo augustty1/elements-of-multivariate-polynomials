@@ -1,7 +1,6 @@
 # Elements of multivariate polynomials
----
 
-# Sum-of-squares decomposition
+## Sum-of-squares decomposition
 
 With effect, all sum-of-squares (of multivariate polynomials) is everywhere nonnegative:
 
