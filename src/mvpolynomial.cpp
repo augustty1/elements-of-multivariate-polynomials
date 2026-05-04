@@ -8,7 +8,7 @@ mvpolyT::mvpolyT () {
   exps e(nvars);
   
   while(std::cin>>c) {
-    for (int i = 0; i<nvars; i++)
+    for (unsigned int i = 0; i<nvars; i++)
       std::cin>>e[i];
     addterm(e,c);
   }
@@ -30,13 +30,13 @@ void mvpolyT::addterm (const exps& _e, coeff _c) {
   }
 }
 
-int mvpolyT::degree() const {
+unsigned int mvpolyT::degree() const {
   int d = 0;
   
   std::map<exps, coeff>::const_iterator it;
   for (it = terms.begin(); it!= terms.end(); it++) {
     int sum = 0;
-    for (int e : it->first)
+    for (unsigned int e : it->first)
       sum+=e;
 
     d = std::max(d,sum);
@@ -50,13 +50,13 @@ bool mvpolyT::homogeneous() const {
 
   std::map<exps, coeff>::const_iterator it;
   it = terms.begin();
-  int firs_degree = 0;
-  for (int e: it->first)
+  unsigned int firs_degree = 0;
+  for (unsigned int e: it->first)
     firs_degree+=e;
 
   for (it = terms.begin(); it != terms.end(); it++) {
     int d = 0;
-    for (int e: it->first)
+    for (unsigned int e: it->first)
       d+=e;
 
     if(d != firs_degree)
@@ -76,7 +76,7 @@ bool mvpolyT::homogeneous() const {
  * components of monomialbasis to the monomials of 
  * degree exactly equal to d.
  */ 
-void mvpolyT::rec_monomialbasis(int v, int remain, exps& curr, std::vector<exps>& ans) const {
+void mvpolyT::rec_monomialbasis(unsigned int v, unsigned int remain, exps& curr, std::vector<exps>& ans) const {
   /*
    * Last variable
    */
@@ -89,14 +89,14 @@ void mvpolyT::rec_monomialbasis(int v, int remain, exps& curr, std::vector<exps>
   /*
    * For the actual variable, try all the powers
    */
-  for ( int e = 0; e<=remain; e++) {
+  for (unsigned int e = 0; e<=remain; e++) {
     curr[v]=e;
     rec_monomialbasis(v+1, remain - e, curr, ans);
   }
 }
 
 monomialbasisT mvpolyT::monomialbasis() const {
-  int twod = degree();
+  unsigned int twod = degree();
   if (twod % 2 != 0)
     throw std::runtime_error("Polynomials with odd degree always have negative points");
   
@@ -109,7 +109,7 @@ monomialbasisT mvpolyT::monomialbasis() const {
     rec_monomialbasis(0, m.degree, curr, m.monomials);
   }
   else {
-    for(int d = 0; d<= m.degree; d++){
+    for(unsigned int d = 0; d<= m.degree; d++){
       exps curr(nvars);
       rec_monomialbasis(0, d, curr, m.monomials);
     }
@@ -149,7 +149,7 @@ void mvpolyT::dbg () {
     
     std::cout<<std::abs(it->second)<<" ";
     
-    for (int i = 0; i<it->first.size(); i++) {
+    for (size_t i = 0; i<it->first.size(); i++) {
       if(it->first[i] == 0)
 	continue;
       else
@@ -165,9 +165,9 @@ void monomialbasisT::dbg() const {
   std::cout<<(homogeneous ? "This is a base for a Form" : 
 	      "This is a base for a Polynomial")<<'\n';
 
-  for (int i = 0; i<size; i++) {
+  for (size_t i = 0; i<size; i++) {
     std::cout<<"m["<<i<<"] = [";
-    for (int k = 0; k<monomials[i].size(); k++) {
+    for (size_t k = 0; k<monomials[i].size(); k++) {
       std::cout<<monomials[i][k];
       if (k < monomials[i].size() - 1)
 	std::cout << ", ";
@@ -176,7 +176,7 @@ void monomialbasisT::dbg() const {
 
     std::cout << " (";
     bool first = true;
-    for (int k = 0; k < monomials[i].size(); k++) {
+    for (size_t k = 0; k < monomials[i].size(); k++) {
       if (monomials[i][k] > 0) {
 	if(!first)
 	  std::cout << " ";
