@@ -1,0 +1,13 @@
+build/
+*.o
+*.out
+*.exe
+
+poly
+
+
+*~
+*.swp
+*.swo
+
+*.bak
