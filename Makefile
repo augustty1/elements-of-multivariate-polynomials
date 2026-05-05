@@ -9,7 +9,7 @@ BUILDDIR = build
 SOURCES = $(wildcard $(SRCDIR)/*.cpp)
 OBJECTS = $(patsubst $(SRCDIR)/%.cpp, $(BUILDDIR)/%.o, $(SOURCES))
 
-TARGET = poly
+TARGET = exec
 
 all: $(TARGET)
 

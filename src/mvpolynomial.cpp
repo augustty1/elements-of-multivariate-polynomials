@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iostream>
 #include <stdexcept>
 #include "../include/mvpolynomial.hpp"
@@ -119,6 +120,74 @@ monomialbasisT mvpolyT::monomialbasis() const {
   return(m);
 }
 
+/*
+ * Given a monomial basis, does not matter the ordering this function
+ * uses the gram's matrix method for computing a vector of linear
+ * constraints. This constraints will be translated to the .dat-s format
+ * for a Semidefinite programming solver.
+ */
+std::vector<constraintT> mvpolyT::gram(const monomialbasisT& mb) const {
+  std::vector<constraintT> ans;
+  std::map<std::pair<unsigned int, unsigned int>, unsigned int> entryindex; 
+  /* Each (i,j) mapsto a decision variable say y_k, with index k.
+   * We have N(N+1)/2 decision variables since the Gram matrix is symetric.
+  */
+  unsigned int index = 0;
+  for(unsigned int i = 0; i<mb.size; i++) {
+    for(unsigned int j = i; j<mb.size; j++) {
+      index++;
+      entryindex[{i,j}] = index;
+    }
+  }
+
+  std::map<exps, std::vector<std::pair<unsigned int, coeff>>> monomialindex; 
+  /* Each variable needs to be compared to a coefficient and it is 
+   * dicted with the monomial. Expoents maps to the index of decision
+   * variable plus the coefficient, note that since the Gram matrix is symetric,
+   * coeff = 1 if i==j and coeff = 2 if i != j.
+   */
+  for(unsigned int i = 0; i<mb.size; i++) {
+    for(unsigned int j = i; j<mb.size; j++) {
+      exps product(nvars);
+      for (unsigned int k = 0; k < nvars; k++) {
+	product[k] = mb.monomials[i][k] + mb.monomials[j][k];
+      }
+
+	unsigned int y_k = entryindex[{i,j}];
+	coeff c = (i==j)? 1.0 : 2.0;
+
+	monomialindex[product].push_back({y_k, c});
+      }
+    }
+
+/*
+ * Generating linear constraints
+ */
+  std::map<exps, coeff>::const_iterator it;
+  for (it = terms.begin(); it != terms.end(); it++) {
+    constraintT ctr;
+    ctr.rhs = it->second;
+
+    std::map<exps, std::vector<std::pair<unsigned int, coeff>>>::const_iterator findit;
+    findit = monomialindex.find(it->first); // Remark: The find method returns an iterator with the 
+					      // itens or monomialindex.end() if does not find anything.
+    if (findit != monomialindex.end()) {
+       /*
+	* Vector with decision variables indexes and their coefficients 1.0 or 2.0
+	*/
+	const std::vector<std::pair<unsigned int, coeff>> indexandcoeffs = findit->second;
+	
+	for(size_t v = 0; v  < indexandcoeffs.size(); v++) {
+	  unsigned int index = indexandcoeffs[v].first;
+	  coeff c = indexandcoeffs[v].second;
+
+	  ctr.lhs[index]=c;
+	}
+    }
+    ans.push_back(ctr);
+  }
+  return(ans);
+}
 
 /*
  *	Just for debuging

@@ -8,6 +8,11 @@
 using exps = std::vector<unsigned int>;
 using coeff=double;
 
+struct constraintT {
+  std::map<unsigned int, coeff> lhs;
+  coeff rhs;
+};
+
 class monomialbasisT {
   public:
   std::vector<exps> monomials;
@@ -31,6 +36,7 @@ class mvpolyT {
   mvpolyT ();
   void addterm(const exps& _e, coeff _c);
   monomialbasisT monomialbasis() const;
+  std::vector<constraintT> gram(const monomialbasisT& mb) const;
   void dbg();
 };
 
