@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <fstream>
 #include <iostream>
 #include <stdexcept>
 #include "../include/mvpolynomial.hpp"
@@ -7,6 +8,7 @@ mvpolyT::mvpolyT () {
   std::cin>>nvars;
   coeff c;
   exps e(nvars);
+  ismbcomputed = false;
   
   while(std::cin>>c) {
     for (unsigned int i = 0; i<nvars; i++)
@@ -56,7 +58,7 @@ bool mvpolyT::homogeneous() const {
     firs_degree+=e;
 
   for (it = terms.begin(); it != terms.end(); it++) {
-    int d = 0;
+    unsigned int d = 0;
     for (unsigned int e: it->first)
       d+=e;
 
@@ -96,28 +98,30 @@ void mvpolyT::rec_monomialbasis(unsigned int v, unsigned int remain, exps& curr,
   }
 }
 
-monomialbasisT mvpolyT::monomialbasis() const {
-  unsigned int twod = degree();
-  if (twod % 2 != 0)
-    throw std::runtime_error("Polynomials with odd degree always have negative points");
+const monomialbasisT& mvpolyT::monomialbasis() {
+  if(!ismbcomputed) {
+    unsigned int twod = degree();
+    if (twod % 2 != 0)
+      throw std::runtime_error("Polynomials with odd degree always have negative points");
   
-  monomialbasisT m;
-  m.degree = twod / 2;
-  m.homogeneous = homogeneous();
+    mb.degree = twod / 2;
+    mb.homogeneous = homogeneous();
 
-  if (m.homogeneous) {
-    exps curr(nvars);
-    rec_monomialbasis(0, m.degree, curr, m.monomials);
-  }
-  else {
-    for(unsigned int d = 0; d<= m.degree; d++){
+    if (mb.homogeneous) {
       exps curr(nvars);
-      rec_monomialbasis(0, d, curr, m.monomials);
+      rec_monomialbasis(0, mb.degree, curr, mb.monomials);
     }
-  }
+    else {
+      for(unsigned int d = 0; d<= mb.degree; d++){
+	exps curr(nvars);
+	rec_monomialbasis(0, d, curr, mb.monomials);
+      }
+    }
   
-  m.size = m.monomials.size();
-  return(m);
+    mb.size = mb.monomials.size();
+    ismbcomputed = true;
+    }
+  return(mb);
 }
 
 /*
@@ -126,10 +130,12 @@ monomialbasisT mvpolyT::monomialbasis() const {
  * constraints. This constraints will be translated to the .dat-s format
  * for a Semidefinite programming solver.
  */
-std::vector<constraintT> mvpolyT::gram(const monomialbasisT& mb) const {
+std::vector<constraintT> mvpolyT::gram() {
+  const monomialbasisT& mb = monomialbasis();
   std::vector<constraintT> ans;
   std::map<std::pair<unsigned int, unsigned int>, unsigned int> entryindex; 
-  /* Each (i,j) mapsto a decision variable say y_k, with index k.
+  /* 
+   * Each (i,j) mapsto a decision variable say y_k, with index k.
    * We have N(N+1)/2 decision variables since the Gram matrix is symetric.
   */
   unsigned int index = 0;
@@ -141,7 +147,8 @@ std::vector<constraintT> mvpolyT::gram(const monomialbasisT& mb) const {
   }
 
   std::map<exps, std::vector<std::pair<unsigned int, coeff>>> monomialindex; 
-  /* Each variable needs to be compared to a coefficient and it is 
+  /* 
+   * Each variable needs to be compared to a coefficient and it is 
    * dicted with the monomial. Expoents maps to the index of decision
    * variable plus the coefficient, note that since the Gram matrix is symetric,
    * coeff = 1 if i==j and coeff = 2 if i != j.
@@ -188,6 +195,68 @@ std::vector<constraintT> mvpolyT::gram(const monomialbasisT& mb) const {
   }
   return(ans);
 }
+
+/*
+ * .dat-s is the general format for sparse mixed semidefinite programming
+ * [more info](https://github.com/scipopt/SCIP-SDP/blob/main/sdpa_format.txt)
+ */
+void mvpolyT::todats(const std::string& filename) {
+  const monomialbasisT& mb = monomialbasis();
+  std::vector<constraintT>ctrs = gram();
+  
+  unsigned int numvars = (mb.size*(mb.size)) / 2;
+  /*
+   * To gen == contraint, we need the >= and the <=
+   */
+  unsigned int numlps = 2*ctrs.size();
+
+  std::ofstream file(filename);
+  if (!file.is_open())
+    throw std::runtime_error("Couldn't open: "+ filename);
+
+  file<<numvars<<'\n';
+  file<<"2\n"; /*number of blocks sdp and lp constraints*/
+  file<<mb.size<<" -"<<numlps<<'\n'; /*size of the blocks - is for lp constraints*/
+  for(unsigned int i=0; i<numvars;i++) /*fesiability*/
+    file<<(i<numvars-1?"0 ":"0");
+  file<<'\n';
+
+  /*
+   * sdp block
+   * the sdp matrix is 1 based
+   */
+  unsigned int y_k = 1;
+  for (unsigned int i = 0; i<mb.size; i++) {
+    for(unsigned int j=i; j<mb.size; j++) {
+      file<<y_k<<" 1 "<<(i+1)<<" "<<(j+1)<<" 1.0\n";
+      y_k++;
+    }
+  }
+
+  /*
+   * lp constraints block
+   * the lp rows is 1 based
+   */
+  unsigned int row=1;
+  for(size_t ctr=0; ctr< ctrs.size(); ctr++) {
+   file <<"0 2 "<<row<<" "<<row<<" "<<ctrs[ctr].rhs<<'\n';/*constant term*/
+
+   std::map<unsigned int, coeff>::iterator it;
+   for(it = ctrs[ctr].lhs.begin() ; it != ctrs[ctr].lhs.end(); it++) {
+     file<<it->first<<" 2 "<<row<<" "<<row<<" "<<it->second<<'\n'; 
+   }
+   row++;
+
+   /*sign inversion*/
+    file<<"0 2 "<<row<<" "<<row<<" "<<-(ctrs[ctr].rhs)<<'\n';
+    for(it = ctrs[ctr].lhs.begin(); it != ctrs[ctr].lhs.end(); it++) {
+      file<<it->first<<" 2 "<<row<<" "<<row<<" "<< -(it->second)<<'\n';
+    }
+    row++;
+  }
+  file.close();
+}
+
 
 /*
  *	Just for debuging
@@ -262,4 +331,8 @@ void monomialbasisT::dbg() const {
       std::cout<<"1";
     std::cout<<")"<<'\n';
   }
+}
+
+void mvpolyT::mbdbg() {
+  mb.dbg();
 }

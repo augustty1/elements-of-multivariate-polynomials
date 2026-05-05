@@ -2,6 +2,7 @@
 #define MVPOLYNOMIAL_HPP
 
 #include <cstddef>
+#include <string>
 #include <vector>
 #include <map>
 
@@ -39,7 +40,9 @@ class mvpolyT {
   void addterm(const exps& _e, coeff _c);
   const monomialbasisT& monomialbasis();
   std::vector<constraintT> gram();
+  void todats(const std::string& filename);
   void dbg();
+  void mbdbg();
 };
 
 #endif // MVPOLYNOMIAL_HPP

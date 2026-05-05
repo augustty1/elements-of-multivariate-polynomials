@@ -17,9 +17,9 @@ int main () {
   F.dbg();
 
   std::cout << '\n';
+  F.todats("mvpoly.dat-s");
 
-  monomialbasisT m = F.monomialbasis();
-  m.dbg();
+  F.mbdbg();
   }
   catch (const std::exception& e){
     std::cerr << "Error: "<<e.what()<<'\n';
