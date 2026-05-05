@@ -18,52 +18,6 @@ $$\text{Let } N = \binom{n+d}{d} $$
 
 $$\sum_{i=1}^k q_i^2(x)_{j=1}^n = p(x)_{j=1}^n  \Leftrightarrow \exists G \in \mathbb{R}^{N \times N} : G = G^t \land G \succeq 0 \land p(x)_{j=1}^n = m^t G m .$$
 
-And an important remark is if the polynomial is homogeneous (a form) of degre $2d$, then it is sufficient to restrict the components of $m$ to the monomials of degree exactly equal to $d$. 
+The constraints imposed by $p(x)_{j=1}^n = m^t G m$ generates linear constraints, plus the $G \succeq 0$ implies a semidefinite feasibility problem.
 
-$m$ can be generetade with recursion and backtracking. The algorithm bellow computes the monomial basis:
-
-```cpp
-void mvpolyT::rec_monomialbasis(int v, int remain, exps& curr, std::vector<exps>& ans) const {
-  /*
-   * Last variable
-   */
-  if (v == nvars-1) {
-    curr[v] = remain;
-    ans.push_back(curr);
-    return;
-  }
-
-  /*
-   * For the actual variable, try all the powers
-   */
-  for ( int e = 0; e<=remain; e++) {
-    curr[v]=e;
-    rec_monomialbasis(v+1, remain - e, curr, ans);
-  }
-}
-
-monomialbasisT mvpolyT::monomialbasis() const {
-  int twod = degree();
-  if (twod % 2 != 0)
-    throw std::runtime_error("Polynomials with odd degree always have negative points");
-  
-  monomialbasisT m;
-  m.degree = twod / 2;
-  m.homogeneous = homogeneous();
-
-  if (m.homogeneous) {
-    exps curr(nvars);
-    rec_monomialbasis(0, m.degree, curr, m.monomials);
-  }
-  else {
-    for(int d = 0; d<= m.degree; d++){
-      exps curr(nvars);
-      rec_monomialbasis(0, d, curr, m.monomials);
-    }
-  }
-  
-  m.size = m.monomials.size();
-  return(m);
-}
-```
-
+---
