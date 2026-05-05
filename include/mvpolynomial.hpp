@@ -26,6 +26,8 @@ class monomialbasisT {
 class mvpolyT {
   unsigned int nvars;
   std::map<exps, coeff> terms;
+  monomialbasisT mb;
+  bool ismbcomputed;
   
   unsigned int degree() const;
   bool homogeneous() const;
@@ -35,8 +37,8 @@ class mvpolyT {
   public:
   mvpolyT ();
   void addterm(const exps& _e, coeff _c);
-  monomialbasisT monomialbasis() const;
-  std::vector<constraintT> gram(const monomialbasisT& mb) const;
+  const monomialbasisT& monomialbasis();
+  std::vector<constraintT> gram();
   void dbg();
 };
 
