@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <sstream>
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
@@ -264,20 +265,43 @@ void mvpolyT::scipsdp(const std::string& filename) const {
     std::cerr<<"\n Error in scipsdp"<<res<<'\n';
 }
 
+/*
+ * After SCIP Solver we need to read data and transform again into a polynomial
+ */
 void mvpolyT::readsolution(const std::string& filename) {
-  // TODO: Calcular a base monomial (mas ela deveria ter sido calculada)
-  // Pensar melhor nisso
   if(!ismbcomputed)
-    throw std::runtime_error("Is necessary compute the monomial basis first");
-  
-  solution.size = mb.size;
-  solution.nvars = (solution.size*(solution.size+1))/2;
+    throw std::runtime_error("It is necessary to compute monomial basis first");
 
+  //TODO better read logic maybe
+  solution.y.clear();
   std::ifstream file(filename);
   std::string line;
   bool foundopt = false;
+  while ( std::getline(file, line)) {
+    if (line.find("optimal solution found") != std::string::npos)
+      foundopt = true;
 
 
+    if(line.find("x_") != std::string::npos and line.find("(obj:")!= std::string::npos) {	
+      std::stringstream ss(line); 
+      std::string y_k;
+      coeff c;
+      ss>>y_k>>c;
+      solution.y.push_back(c);
+    }
+  }
+  file.close();
+
+  //TODO another debug
+  if(!foundopt)
+    throw std::runtime_error("Optimal solution was not found");
+
+  solution.nvars = solution.y.size();
+  solution.size = mb.size;
+  solution.solved = true;
+
+  for(int i = 0; i<solution.y.size(); i++)
+    std::cout<<solution.y[i]<<'\n';
 }
 
 /*
