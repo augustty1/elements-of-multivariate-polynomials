@@ -18,6 +18,8 @@ int main () {
 
   std::cout << '\n';
   F.todats("mvpoly.dat-s");
+  F.scipsdp("solvescript.sh");
+  F.readsolution("solution.sol");
 
   F.mbdbg();
   }

@@ -204,7 +204,7 @@ void mvpolyT::todats(const std::string& filename) {
   const monomialbasisT& mb = monomialbasis();
   std::vector<constraintT>ctrs = gram();
   
-  unsigned int numvars = (mb.size*(mb.size)) / 2;
+  unsigned int numvars = (mb.size*(mb.size + 1)) / 2;
   /*
    * To gen == contraint, we need the >= and the <=
    */
@@ -257,6 +257,28 @@ void mvpolyT::todats(const std::string& filename) {
   file.close();
 }
 
+void mvpolyT::scipsdp(const std::string& filename) const {
+  std::string command = "scipsdp <" + filename;
+  int res = std::system(command.c_str());
+  if(res !=0)
+    std::cerr<<"\n Error in scipsdp"<<res<<'\n';
+}
+
+void mvpolyT::readsolution(const std::string& filename) {
+  // TODO: Calcular a base monomial (mas ela deveria ter sido calculada)
+  // Pensar melhor nisso
+  if(!ismbcomputed)
+    throw std::runtime_error("Is necessary compute the monomial basis first");
+  
+  solution.size = mb.size;
+  solution.nvars = (solution.size*(solution.size+1))/2;
+
+  std::ifstream file(filename);
+  std::string line;
+  bool foundopt = false;
+
+
+}
 
 /*
  *	Just for debuging

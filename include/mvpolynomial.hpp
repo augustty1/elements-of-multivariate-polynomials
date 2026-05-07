@@ -14,6 +14,15 @@ struct constraintT {
   coeff rhs;
 };
 
+struct sdpsolT {
+  std::vector<coeff> y;
+  unsigned int nvars;
+  size_t size;
+  bool solved;
+
+  sdpsolT() : nvars(0), size(0), solved(false) {}
+};
+
 class monomialbasisT {
   public:
   std::vector<exps> monomials;
@@ -29,7 +38,8 @@ class mvpolyT {
   std::map<exps, coeff> terms;
   monomialbasisT mb;
   bool ismbcomputed;
-  
+  sdpsolT solution;  
+
   unsigned int degree() const;
   bool homogeneous() const;
   void rec_monomialbasis(unsigned int v, unsigned int remain, 
@@ -41,6 +51,8 @@ class mvpolyT {
   const monomialbasisT& monomialbasis();
   std::vector<constraintT> gram();
   void todats(const std::string& filename);
+  void scipsdp(const std::string& filename) const;
+  void readsolution(const std::string& filename);
   void dbg();
   void mbdbg();
 };
