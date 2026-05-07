@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <sstream>
 #include <fstream>
+#include <cmath>
 #include <iostream>
 #include <stdexcept>
 #include "../include/mvpolynomial.hpp"
@@ -299,9 +300,78 @@ void mvpolyT::readsolution(const std::string& filename) {
   solution.nvars = solution.y.size();
   solution.size = mb.size;
   solution.solved = true;
-
+/*
   for(int i = 0; i<solution.y.size(); i++)
     std::cout<<solution.y[i]<<'\n';
+*/
+}
+
+//TODO: refact
+void mvpolyT::soscholesky() {
+  if(!solution.solved)
+    throw std::runtime_error("It is necessary to solve first");
+
+  /*
+   * Gram matrix reconstruction
+   */
+  std::vector<std::vector<coeff>> Q( mb.size , std::vector<coeff>( mb.size, 0.0));
+  unsigned k=0;
+  for (unsigned int i = 0; i<mb.size ; i++){
+    for (unsigned int j = i; j<mb.size; j++){
+      coeff q = solution.y[k];
+      Q[i][j] = q;
+      Q[j][i] = q;
+      k++;
+    }
+  }
+    // dbg
+    std::cout<<"Q =";
+    for(unsigned int i = 0;i<mb.size; i++) {
+      for(unsigned j = 0; j<mb.size; j++) {
+	std::cout<<"\t"<<Q[i][j];
+      }
+      std::cout<<'\n';
+    }
+  //TODO modularize
+  /*
+   * Cholesky decomposition
+   */
+  std::vector<std::vector<coeff>> L(mb.size, std::vector<coeff>(mb.size, 0.0));
+  for ( unsigned int j=0; j< mb.size; j++) {
+   coeff sum = 0.0;
+   for(unsigned int k = 0; k< j; k++) {
+      sum += L[j][k]*L[j][k];
+   }
+   coeff diag = Q[j][j] - sum;
+   
+   // tentando algo
+   if(diag < -1e-8)
+     diag = 0.0;
+
+   L[j][j] = std::sqrt(std::max(0.0,diag));
+   for(unsigned int i = j+1; i < mb.size; i++) {
+      coeff sum2 = 0.0;
+      for(unsigned int k = 0; k<j; k++) {
+	sum2 += L[i][k] * L[j][k];
+      }
+    
+      if(L[j][j] > 1e-10) {
+	L[i][j] = (Q[i][j] - sum2)/L[j][j];
+      }
+      else {
+	L[i][j] = 0.0;
+      }
+   }
+  }
+
+  //dbg
+  std::cout<<"L =";
+  for(unsigned int i = 0; i < mb.size; i++) {
+    for(unsigned int j = 0; j<mb.size; j++) {
+      std::cout<<"\t"<<L[i][j];
+    }
+    std::cout<<'\n';
+  }
 }
 
 /*

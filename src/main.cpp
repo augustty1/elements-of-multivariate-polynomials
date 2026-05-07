@@ -20,6 +20,7 @@ int main () {
   F.todats("mvpoly.dat-s");
   F.scipsdp("solvescript.sh");
   F.readsolution("solution.sol");
+  F.soscholesky();
 
   F.mbdbg();
   }

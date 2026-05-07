@@ -53,6 +53,7 @@ class mvpolyT {
   void todats(const std::string& filename);
   void scipsdp(const std::string& filename) const;
   void readsolution(const std::string& filename);
+  void soscholesky();
   void dbg();
   void mbdbg();
 };
