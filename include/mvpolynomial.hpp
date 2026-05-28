@@ -7,7 +7,7 @@
 #include <map>
 
 using exps = std::vector<unsigned int>;
-using coeff=double;
+using coeff = double;
 
 struct constraintT {
   std::map<unsigned int, coeff> lhs;

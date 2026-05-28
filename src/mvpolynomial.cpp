@@ -269,31 +269,39 @@ void mvpolyT::scipsdp(const std::string& filename) const {
 /*
  * After SCIP Solver we need to read data and transform again into a polynomial
  */
+// TODO review
 void mvpolyT::readsolution(const std::string& filename) {
   if(!ismbcomputed)
     throw std::runtime_error("It is necessary to compute monomial basis first");
 
-  //TODO better read logic maybe
-  solution.y.clear();
   std::ifstream file(filename);
   std::string line;
   bool foundopt = false;
-  while ( std::getline(file, line)) {
-    if (line.find("optimal solution found") != std::string::npos)
+  unsigned int expect = (mb.size *(mb.size + 1))/2;
+  solution.y.assign(expect,0.0);
+
+  while(std::getline(file,line)) {
+    if(line.find("optimal solution found") != std::string::npos)
       foundopt = true;
 
-
-    if(line.find("x_") != std::string::npos and line.find("(obj:")!= std::string::npos) {	
-      std::stringstream ss(line); 
-      std::string y_k;
+    if(line.find("x_") != std::string::npos && line.find("(obj:") != std::string::npos) {
+      std::stringstream ss(line);
+      std::string var_name;
       coeff c;
-      ss>>y_k>>c;
-      solution.y.push_back(c);
+      ss>>var_name>>c;
+
+      size_t pos = var_name.find("_");
+      if (pos!=std::string::npos) {
+	unsigned int idx = std::atoi(var_name.c_str() + pos + 1);
+	if(idx < expect)
+	  solution.y[idx] = c;
+      }
     }
   }
+
   file.close();
 
-  //TODO another debug
+  // another debug
   if(!foundopt)
     throw std::runtime_error("Optimal solution was not found");
 
@@ -307,6 +315,7 @@ void mvpolyT::readsolution(const std::string& filename) {
 }
 
 //TODO: refact
+//	exact
 void mvpolyT::soscholesky() {
   if(!solution.solved)
     throw std::runtime_error("It is necessary to solve first");
