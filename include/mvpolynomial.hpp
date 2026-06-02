@@ -28,7 +28,10 @@ class monomialbasisT {
   std::vector<exps> monomials;
   size_t size;
   bool homogeneous;
-  unsigned int degree;	// half of max degree of mvpolyT
+  /*
+   * half of max degree of mvpolyT
+   */
+  unsigned int degree;
 
   void dbg() const;
 };

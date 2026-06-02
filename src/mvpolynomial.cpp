@@ -19,7 +19,8 @@ mvpolyT::mvpolyT () {
   }
 }
 
-void mvpolyT::addterm (const exps& _e, coeff _c) {
+void 
+mvpolyT::addterm (const exps& _e, coeff _c) {
   if(_c == 0)
     return;
 
@@ -35,7 +36,8 @@ void mvpolyT::addterm (const exps& _e, coeff _c) {
   }
 }
 
-unsigned int mvpolyT::degree() const {
+unsigned int 
+mvpolyT::degree() const {
   int d = 0;
   
   std::map<exps, coeff>::const_iterator it;
@@ -49,7 +51,8 @@ unsigned int mvpolyT::degree() const {
   return(d);
 }
 
-bool mvpolyT::homogeneous() const {
+bool 
+mvpolyT::homogeneous() const {
   if(terms.empty())
     return (true);
 
@@ -81,7 +84,8 @@ bool mvpolyT::homogeneous() const {
  * components of monomialbasis to the monomials of 
  * degree exactly equal to d.
  */ 
-void mvpolyT::rec_monomialbasis(unsigned int v, unsigned int remain, exps& curr, std::vector<exps>& ans) const {
+void 
+mvpolyT::rec_monomialbasis(unsigned int v, unsigned int remain, exps& curr, std::vector<exps>& ans) const {
   /*
    * Last variable
    */
@@ -100,7 +104,8 @@ void mvpolyT::rec_monomialbasis(unsigned int v, unsigned int remain, exps& curr,
   }
 }
 
-const monomialbasisT& mvpolyT::monomialbasis() {
+const monomialbasisT& 
+mvpolyT::monomialbasis() {
   if(!ismbcomputed) {
     unsigned int twod = degree();
     if (twod % 2 != 0)
@@ -132,7 +137,8 @@ const monomialbasisT& mvpolyT::monomialbasis() {
  * constraints. This constraints will be translated to the .dat-s format
  * for a Semidefinite programming solver.
  */
-std::vector<constraintT> mvpolyT::gram() {
+std::vector<constraintT> 
+mvpolyT::gram() {
   const monomialbasisT& mb = monomialbasis();
   std::vector<constraintT> ans;
   std::map<std::pair<unsigned int, unsigned int>, unsigned int> entryindex; 
@@ -177,9 +183,12 @@ std::vector<constraintT> mvpolyT::gram() {
     constraintT ctr;
     ctr.rhs = it->second;
 
+    /*
+     * The find method returns an iterator with the itens or monomialindex.end() if does not find anything.
+     */
     std::map<exps, std::vector<std::pair<unsigned int, coeff>>>::const_iterator findit;
-    findit = monomialindex.find(it->first); // Remark: The find method returns an iterator with the 
-					      // itens or monomialindex.end() if does not find anything.
+    findit = monomialindex.find(it->first); 
+
     if (findit != monomialindex.end()) {
        /*
 	* Vector with decision variables indexes and their coefficients 1.0 or 2.0
@@ -202,7 +211,8 @@ std::vector<constraintT> mvpolyT::gram() {
  * .dat-s is the general format for sparse mixed semidefinite programming
  * [more info](https://github.com/scipopt/SCIP-SDP/blob/main/sdpa_format.txt)
  */
-void mvpolyT::todats(const std::string& filename) {
+void 
+mvpolyT::todats(const std::string& filename) {
   const monomialbasisT& mb = monomialbasis();
   std::vector<constraintT>ctrs = gram();
   
@@ -259,7 +269,8 @@ void mvpolyT::todats(const std::string& filename) {
   file.close();
 }
 
-void mvpolyT::scipsdp(const std::string& filename) const {
+void 
+mvpolyT::scipsdp(const std::string& filename) const {
   std::string command = "scipsdp <" + filename;
   int res = std::system(command.c_str());
   if(res !=0)
@@ -269,8 +280,8 @@ void mvpolyT::scipsdp(const std::string& filename) const {
 /*
  * After SCIP Solver we need to read data and transform again into a polynomial
  */
-// TODO review
-void mvpolyT::readsolution(const std::string& filename) {
+void 
+mvpolyT::readsolution(const std::string& filename) {
   if(!ismbcomputed)
     throw std::runtime_error("It is necessary to compute monomial basis first");
 
@@ -314,9 +325,8 @@ void mvpolyT::readsolution(const std::string& filename) {
 */
 }
 
-//TODO: refact
-//	exact
-void mvpolyT::soscholesky() {
+void 
+mvpolyT::soscholesky() {
   if(!solution.solved)
     throw std::runtime_error("It is necessary to solve first");
 
@@ -341,52 +351,39 @@ void mvpolyT::soscholesky() {
       }
       std::cout<<'\n';
     }
-  //TODO modularize
   /*
    * Cholesky decomposition
+   * Using the LDLT variant to avoid square roots
    */
   std::vector<std::vector<coeff>> L(mb.size, std::vector<coeff>(mb.size, 0.0));
-  for ( unsigned int j=0; j< mb.size; j++) {
-   coeff sum = 0.0;
-   for(unsigned int k = 0; k< j; k++) {
-      sum += L[j][k]*L[j][k];
-   }
-   coeff diag = Q[j][j] - sum;
-   
-   // tentando algo
-   if(diag < -1e-8)
-     diag = 0.0;
+  std::vector<coeff> D(mb.size, 0.0);
 
-   L[j][j] = std::sqrt(std::max(0.0,diag));
-   for(unsigned int i = j+1; i < mb.size; i++) {
-      coeff sum2 = 0.0;
-      for(unsigned int k = 0; k<j; k++) {
-	sum2 += L[i][k] * L[j][k];
-      }
+  for (unsigned int i = 0; i<mb.size; i++)
+    L[i][i]=1.0;
+  for (unsigned int i = 0; i<mb.size; i++) {
+    coeff sum = 0.0;
+    for (unsigned int j=0; j<i; j++)
+      sum += L[i][j]*L[i][j]*D[j];
+    D[i] = Q[i][i] - sum;
     
-      if(L[j][j] > 1e-10) {
-	L[i][j] = (Q[i][j] - sum2)/L[j][j];
-      }
-      else {
-	L[i][j] = 0.0;
-      }
-   }
-  }
+    for (unsigned int j=i+1;j<mb.size;j++){
+      coeff sum2 = 0.0;
+      for(unsigned int k = 0; k<i; k++)
+	sum2 += L[j][k] * L[i][k] * D[k];
 
-  //dbg
-  std::cout<<"L =";
-  for(unsigned int i = 0; i < mb.size; i++) {
-    for(unsigned int j = 0; j<mb.size; j++) {
-      std::cout<<"\t"<<L[i][j];
+      if (std::abs(D[i]) > 1e-10)
+	L[j][i] = (Q[j][i] - sum2) / D[i];
+      else
+       L[j][i] = 0.0;	
     }
-    std::cout<<'\n';
   }
 }
 
 /*
  *	Just for debuging
  */
-void mvpolyT::dbg () {
+void 
+mvpolyT::dbg () {
   if (terms.empty()) {
     std::cout<<0<<'\n';
     return;
@@ -422,7 +419,8 @@ void mvpolyT::dbg () {
   std::cout<<'\n';
 }
 
-void monomialbasisT::dbg() const {
+void 
+monomialbasisT::dbg() const {
   std::cout<<"|m| = "<<size<<'\n';
   std::cout<<"d = "<<degree<<'\n'; 
   std::cout<<(homogeneous ? "This is a base for a Form" : 
@@ -458,6 +456,7 @@ void monomialbasisT::dbg() const {
   }
 }
 
-void mvpolyT::mbdbg() {
+void 
+mvpolyT::mbdbg() {
   mb.dbg();
 }
