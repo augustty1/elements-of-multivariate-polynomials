@@ -1,6 +1,7 @@
 CXX = g++
 CXXFLAGS = -Wall -Wextra -std=c++17 -I./include
 DEBUGFLAGS = -g -O0
+LDLIBS = -lgmpxx -lgmp
 
 SRCDIR = src
 INCDIR = include
@@ -14,7 +15,7 @@ TARGET = exec
 all: $(TARGET)
 
 $(TARGET): $(OBJECTS)
-	$(CXX) $(CXXFLAGS) $(DEBUGFLAGS) -o $@ $^
+	$(CXX) $(CXXFLAGS) $(DEBUGFLAGS) -o $@ $^ $(LDLIBS)
 
 $(BUILDDIR)/%.o: $(SRCDIR)/%.cpp | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $(DEBUGFLAGS) -c $< -o $@

@@ -8,11 +8,13 @@
 
 mvpolyT::mvpolyT () {
   std::cin>>nvars;
-  coeff c;
+  double temp_c;
   exps e(nvars);
   ismbcomputed = false;
   
-  while(std::cin>>c) {
+  while(std::cin>>temp_c) {
+    coeff c(temp_c);
+    c.canonicalize();
     for (unsigned int i = 0; i<nvars; i++)
       std::cin>>e[i];
     addterm(e,c);
@@ -297,15 +299,21 @@ mvpolyT::readsolution(const std::string& filename) {
 
     if(line.find("x_") != std::string::npos && line.find("(obj:") != std::string::npos) {
       std::stringstream ss(line);
-      std::string var_name;
-      coeff c;
-      ss>>var_name>>c;
+      std::string x;
+      /*
+       * SCIP -> double -> mpq_class -> soscholesky()
+       */
+      double temp_c;
+      ss>>x>>temp_c;
 
-      size_t pos = var_name.find("_");
+      coeff c(temp_c);
+      c.canonicalize();
+
+      size_t pos = x.find("_");
       if (pos!=std::string::npos) {
-	unsigned int idx = std::atoi(var_name.c_str() + pos + 1);
-	if(idx < expect)
-	  solution.y[idx] = c;
+	unsigned int i = std::atoi(x.c_str() + pos + 1);
+	if(i < expect)
+	  solution.y[i] = c;
       }
     }
   }
@@ -333,7 +341,7 @@ mvpolyT::soscholesky() {
   /*
    * Gram matrix reconstruction
    */
-  std::vector<std::vector<coeff>> Q( mb.size , std::vector<coeff>( mb.size, 0.0));
+  std::vector<std::vector<coeff>> Q( mb.size , std::vector<coeff>(mb.size, 0));
   unsigned k=0;
   for (unsigned int i = 0; i<mb.size ; i++){
     for (unsigned int j = i; j<mb.size; j++){
@@ -355,28 +363,110 @@ mvpolyT::soscholesky() {
    * Cholesky decomposition
    * Using the LDLT variant to avoid square roots
    */
-  std::vector<std::vector<coeff>> L(mb.size, std::vector<coeff>(mb.size, 0.0));
-  std::vector<coeff> D(mb.size, 0.0);
+  std::vector<std::vector<coeff>> L(mb.size, std::vector<coeff>(mb.size, 0));
+  std::vector<coeff> D(mb.size, 0);
 
   for (unsigned int i = 0; i<mb.size; i++)
-    L[i][i]=1.0;
+    L[i][i]=1;
   for (unsigned int i = 0; i<mb.size; i++) {
-    coeff sum = 0.0;
+    coeff sum = 0;
     for (unsigned int j=0; j<i; j++)
       sum += L[i][j]*L[i][j]*D[j];
     D[i] = Q[i][i] - sum;
     
     for (unsigned int j=i+1;j<mb.size;j++){
-      coeff sum2 = 0.0;
+      coeff sum2 = 0;
       for(unsigned int k = 0; k<i; k++)
 	sum2 += L[j][k] * L[i][k] * D[k];
 
-      if (std::abs(D[i]) > 1e-10)
+      if (D[i] != 0)
 	L[j][i] = (Q[j][i] - sum2) / D[i];
       else
-       L[j][i] = 0.0;	
+       L[j][i]=0;
     }
   }
+  
+  // TODO modularize
+  // dbg
+  
+  std::cout<<"L=";
+  for(unsigned int i = 0; i< mb.size;i++) {
+    for(unsigned int j = 0; j< mb.size; j++) {
+      std::cout<<"\t"<<L[i][j];
+    }
+    std::cout<<"\n";
+  }
+  std::cout<<"\n";
+
+  std::cout<<"D=";
+  for(unsigned int i=0;i<mb.size;i++) {
+    std::cout<<"\t"<<D[i];
+  }
+  std::cout<<"\n";
+
+  /*
+   * TODO modularize
+   * mvpolynomial sum of squares just for debuging
+   * therefore print doubles
+   */
+  std::cout << "sos reconstruction of mvpolynomial\n";
+  bool first = true;
+  for (unsigned int i = 0; i < mb.size; i++) {
+    double d_val = D[i].get_d();
+    if (std::abs(d_val) <= 1e-10)
+      continue;
+
+    if (!first)
+      std::cout << " +\n";
+    first = false;
+
+    std::cout << "(" << d_val << ")*(";
+    bool firstmon = true;
+    for (unsigned int j = 0; j < mb.size; j++) {
+      if (L[j][i] == 0)
+        continue;
+
+      if (!firstmon) {
+        if (L[j][i] > 0)
+          std::cout << " + ";
+        else 
+          std::cout << " - ";
+      }
+      bool firstcur = firstmon;
+      firstmon = false;
+
+      double l_val = L[j][i].get_d();
+
+      if (firstcur) {
+        if (l_val == -1.0)
+          std::cout << "-";
+        else if (l_val != 1.0)
+          std::cout << l_val << "*";
+      } else {
+        if (std::abs(l_val) != 1.0)
+          std::cout << std::abs(l_val) << "*";
+      }
+
+      bool vars = false;
+      for (size_t v = 0; v < mb.monomials[j].size(); v++) {
+        if (mb.monomials[j][v] == 0)
+          continue;
+        
+        std::cout << "x_" << (v + 1);
+        if (mb.monomials[j][v] != 1) {
+          std::cout << "^" << mb.monomials[j][v];
+        }
+        std::cout << " ";
+        vars = true;
+      }
+      if (!vars && (l_val == 1.0 || l_val == -1.0)) {
+        std::cout << "1";
+      }
+    }
+    std::cout << ")^2";
+  }
+  std::cout << "\n";
+
 }
 
 /*
@@ -406,8 +496,11 @@ mvpolyT::dbg () {
 	std::cout<<" - ";
     }
     first_term = false;
-    
-    std::cout<<std::abs(it->second)<<" ";
+   
+    /*
+     * gmpxx abs()
+     */
+    std::cout<<abs(it->second)<<" ";
     
     for (size_t i = 0; i<it->first.size(); i++) {
       if(it->first[i] == 0)
