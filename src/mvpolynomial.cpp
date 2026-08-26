@@ -106,6 +106,7 @@ mvpolyT::rec_monomialbasis(unsigned int v, unsigned int remain, exps& curr, std:
   }
 }
 
+// TODO inserir o Politopo de Newton
 const monomialbasisT& 
 mvpolyT::monomialbasis() {
   if(!ismbcomputed) {
@@ -122,8 +123,8 @@ mvpolyT::monomialbasis() {
     }
     else {
       for(unsigned int d = 0; d<= mb.degree; d++){
-	exps curr(nvars);
-	rec_monomialbasis(0, d, curr, mb.monomials);
+	    exps curr(nvars);
+	    rec_monomialbasis(0, d, curr, mb.monomials);
       }
     }
   
@@ -167,7 +168,7 @@ mvpolyT::gram() {
     for(unsigned int j = i; j<mb.size; j++) {
       exps product(nvars);
       for (unsigned int k = 0; k < nvars; k++) {
-	product[k] = mb.monomials[i][k] + mb.monomials[j][k];
+	    product[k] = mb.monomials[i][k] + mb.monomials[j][k];
       }
 
 	unsigned int y_k = entryindex[{i,j}];
@@ -192,7 +193,7 @@ mvpolyT::gram() {
     findit = monomialindex.find(it->first); 
 
     if (findit != monomialindex.end()) {
-       /*
+    /*
 	* Vector with decision variables indexes and their coefficients 1.0 or 2.0
 	*/
 	const std::vector<std::pair<unsigned int, coeff>> indexandcoeffs = findit->second;
