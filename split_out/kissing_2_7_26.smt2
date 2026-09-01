@@ -1,8 +1,0 @@
-(set-logic QF_NRA)
-(declare-fun x_4_0 () Real)
-(declare-fun x_4_1 () Real)
-(declare-fun x_5_0 () Real)
-(declare-fun x_5_1 () Real)
-(assert (>= (- (+ (* (- x_4_0 x_5_0) (- x_4_0 x_5_0)) (* (- x_4_1 x_5_1) (- x_4_1 x_5_1))) 1) 0))
-(check-sat)
-(exit)

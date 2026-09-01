@@ -1,5 +1,0 @@
-(set-logic QF_NRA)
-(declare-const h1 Real)
-(assert (>= (- h1 0) 0))
-(check-sat)
-(exit)

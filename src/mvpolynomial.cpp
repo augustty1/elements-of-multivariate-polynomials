@@ -14,6 +14,7 @@ mvpolyT::mvpolyT () {
   
   while(std::cin>>temp_c) {
     coeff c(temp_c);
+    /*suspicious canonicalize*/
     c.canonicalize();
     for (unsigned int i = 0; i<nvars; i++)
       std::cin>>e[i];
@@ -69,6 +70,7 @@ mvpolyT::homogeneous() const {
     for (unsigned int e: it->first)
       d+=e;
 
+  // TODO rational approx
     if(d != firs_degree)
       return(false);
   }
@@ -106,7 +108,7 @@ mvpolyT::rec_monomialbasis(unsigned int v, unsigned int remain, exps& curr, std:
   }
 }
 
-// TODO inserir o Politopo de Newton
+// TODO Newton politope optimization
 const monomialbasisT& 
 mvpolyT::monomialbasis() {
   if(!ismbcomputed) {
@@ -122,7 +124,7 @@ mvpolyT::monomialbasis() {
       rec_monomialbasis(0, mb.degree, curr, mb.monomials);
     }
     else {
-      for(unsigned int d = 0; d<= mb.degree; d++){
+      for (unsigned int d = 0; d<= mb.degree; d++) {
 	    exps curr(nvars);
 	    rec_monomialbasis(0, d, curr, mb.monomials);
       }
@@ -302,19 +304,21 @@ mvpolyT::readsolution(const std::string& filename) {
       std::stringstream ss(line);
       std::string x;
       /*
-       * SCIP -> double -> mpq_class -> soscholesky()
+       * SCIP -> double -> mpq_class -> LDLT()
        */
-      double temp_c;
-      ss>>x>>temp_c;
+      //double temp_c;
+      //ss>>x>>temp_c;
 
-      coeff c(temp_c);
-      c.canonicalize();
+      //coeff c(temp_c);
+      //c.canonicalize();
+      double c;
+      ss >> x >> c;
 
       size_t pos = x.find("_");
       if (pos!=std::string::npos) {
-	unsigned int i = std::atoi(x.c_str() + pos + 1);
-	if(i < expect)
-	  solution.y[i] = c;
+	        unsigned int i = std::atoi(x.c_str() + pos + 1);
+	 if(i < expect)
+	    solution.y[i] = c;
       }
     }
   }
@@ -334,19 +338,84 @@ mvpolyT::readsolution(const std::string& filename) {
 */
 }
 
+/*
+* Approximate a double with finite 
+* continued fraction i.e. a better rational
+* approximation: a/b with b > 0 there is no 
+* rational number with smaller denominator 
+* which is closer to the "real" number
+*/
+void
+mvpolyT::continued_fractions(long maxden) {
+    solution.y_exact.resize(solution.y.size());
+
+    for (size_t k = 0; k < solution.y.size(); k++) {
+        double x = solution.y[k];
+        long sign = (x < 0) ? -1 : 1;
+        x = std::abs(x);
+
+        long long h0 = 0, h1 = 1;
+        long long g0 = 1, g1 = 0;
+        double y = x;
+        long long a = static_cast<long long>(std::floor(y));
+
+        long long h = a*h1 + h0;
+        long long g = a*g1 + g0;
+
+        while (g <= maxden && y!= static_cast<double>(a)) {
+            double diff = y - static_cast<double>(a);
+            if (diff == 0.0) break;
+            y = 1.0 / diff;
+            h0 = h1;
+            h1 = h;
+            g0 = g1;
+            g1 = g;
+            a = static_cast<long long>(std::floor(y));
+            h = a*h1 + h0;
+            g = a*g1 + g0;
+        }
+        if ( g > maxden ) {
+            h = h1;
+            g = g1;
+        }
+
+        mpq_class rational(static_cast<long>(sign*h), static_cast<unsigned long>(g));
+        rational.canonicalize();
+        solution.y_exact[k] = rational;
+
+    } 
+}
+
+void
+mvpolyT::exactify() {
+   if(!solution.solved)
+       throw std::runtime_error("It is necessary to solve first");
+   
+   continued_fractions(1e6);
+}
+
+/*
+ * Similar to Cholesky decomposition
+ * Using the LDLT avoid square roots
+ * and still in ℚ[X] 
+ */
 void 
-mvpolyT::soscholesky() {
+mvpolyT::LDLT() {
   if(!solution.solved)
     throw std::runtime_error("It is necessary to solve first");
 
   /*
    * Gram matrix reconstruction
+   * from solution
    */
   std::vector<std::vector<coeff>> Q( mb.size , std::vector<coeff>(mb.size, 0));
   unsigned k=0;
   for (unsigned int i = 0; i<mb.size ; i++){
     for (unsigned int j = i; j<mb.size; j++){
-      coeff q = solution.y[k];
+      // coeff q = solution.y[k];
+      coeff q = solution.y_exact[k];
+      // coeff q(solution.y[k]);
+      q.canonicalize();
       Q[i][j] = q;
       Q[j][i] = q;
       k++;
@@ -361,8 +430,7 @@ mvpolyT::soscholesky() {
       std::cout<<'\n';
     }
   /*
-   * Cholesky decomposition
-   * Using the LDLT variant to avoid square roots
+   * LDLT
    */
   std::vector<std::vector<coeff>> L(mb.size, std::vector<coeff>(mb.size, 0));
   std::vector<coeff> D(mb.size, 0);
@@ -380,10 +448,13 @@ mvpolyT::soscholesky() {
       for(unsigned int k = 0; k<i; k++)
 	sum2 += L[j][k] * L[i][k] * D[k];
 
-      if (D[i] != 0)
-	L[j][i] = (Q[j][i] - sum2) / D[i];
-      else
+      if (D[i] != 0) {
+	    L[j][i] = (Q[j][i] - sum2) / D[i];
+        L[j][i].canonicalize();
+      }
+      else {
        L[j][i]=0;
+      }
     }
   }
   
@@ -475,6 +546,7 @@ mvpolyT::soscholesky() {
  */
 void 
 mvpolyT::dbg () {
+  std::cout<<"MVPoly\n---------\n\n";
   if (terms.empty()) {
     std::cout<<0<<'\n';
     return;
@@ -515,10 +587,11 @@ mvpolyT::dbg () {
 
 void 
 monomialbasisT::dbg() const {
-  std::cout<<"|m| = "<<size<<'\n';
-  std::cout<<"d = "<<degree<<'\n'; 
-  std::cout<<(homogeneous ? "This is a base for a Form" : 
-	      "This is a base for a Polynomial")<<'\n';
+  std::cout<<"Monomial basis\n ------------------\n\n";
+  std::cout<<"Cardinality: |m| = "<<size<<'\n';
+  std::cout<<"Max-degree: d = "<<degree<<'\n'; 
+  std::cout<<(homogeneous ? "\nThis is a base for a Form" : 
+	      "\nThis is a base for a Polynomial")<<'\n';
 
   for (size_t i = 0; i<size; i++) {
     std::cout<<"m["<<i<<"] = [";

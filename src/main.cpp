@@ -17,10 +17,28 @@ int main () {
   F.dbg();
 
   std::cout << '\n';
+  /*
+   * pre-processing and
+   * constraint generation
+   */
   F.todats("mvpoly.dat-s");
+
+  /*
+   * communicates with 
+   * scip via interactive shell
+   */
   F.scipsdp("solvescript.sh");
+
+  /*
+   * post-processing and
+   * sos gram matrix reconstruction
+   */
   F.readsolution("solution.sol");
-  F.soscholesky();
+
+  // TODO projection in affine subspace
+  F.exactify();
+
+  F.LDLT();
 
   // just for debuging
   F.mbdbg();

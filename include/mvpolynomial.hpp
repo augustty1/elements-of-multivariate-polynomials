@@ -8,6 +8,8 @@
 #include <gmpxx.h>
 
 using exps = std::vector<unsigned int>;
+
+/*Polynomials are in ℚ[X]*/
 using coeff = mpq_class;
 
 struct constraintT {
@@ -15,8 +17,15 @@ struct constraintT {
   coeff rhs;
 };
 
+/*
+* SCIP-SDP solution is in floating point representation
+* eventually, the continued fraction will transform
+* it from double to coeffs = mpq_class again.
+*/
 struct sdpsolT {
-  std::vector<coeff> y;
+  // std::vector<coeff> y;
+  std::vector<double> y;
+  std::vector<coeff> y_exact;
   unsigned int nvars;
   size_t size;
   bool solved;
@@ -24,14 +33,14 @@ struct sdpsolT {
   sdpsolT() : nvars(0), size(0), solved(false) {}
 };
 
+// TODO Newton Polytope optimization
 class monomialbasisT {
   public:
   std::vector<exps> monomials;
   size_t size;
   bool homogeneous;
-  /*
-   * half of max degree of mvpolyT
-   */
+  
+  /*half of max degree of mvpolyT*/
   unsigned int degree;
 
   void dbg() const;
@@ -49,15 +58,32 @@ class mvpolyT {
   void rec_monomialbasis(unsigned int v, unsigned int remain, 
        exps& curr, std::vector<exps>& ans) const;
 
+  /*
+   * Exatification methods
+   */
+  void continued_fractions(long maxden);
+
   public:
   mvpolyT ();
   void addterm(const exps& _e, coeff _c);
   const monomialbasisT& monomialbasis();
   std::vector<constraintT> gram();
+
+  /*
+   * While using scip-sdp these three functions
+   * are compatible with scip-sdp formats.
+   */
   void todats(const std::string& filename);
   void scipsdp(const std::string& filename) const;
   void readsolution(const std::string& filename);
-  void soscholesky();
+
+  void exactify();  
+
+  /*
+   * matrix decomposition
+   */
+  void LDLT();
+ 
   void dbg();
   void mbdbg();
 };
