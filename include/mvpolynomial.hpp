@@ -62,6 +62,8 @@ class mvpolyT {
    * Exatification methods
    */
   void continued_fractions(long maxden);
+  void projection();
+  
 
   public:
   mvpolyT ();

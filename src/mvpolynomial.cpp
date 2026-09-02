@@ -14,7 +14,7 @@ mvpolyT::mvpolyT () {
   
   while(std::cin>>temp_c) {
     coeff c(temp_c);
-    /*suspicious canonicalize*/
+    
     c.canonicalize();
     for (unsigned int i = 0; i<nvars; i++)
       std::cin>>e[i];
@@ -70,7 +70,6 @@ mvpolyT::homogeneous() const {
     for (unsigned int e: it->first)
       d+=e;
 
-  // TODO rational approx
     if(d != firs_degree)
       return(false);
   }
@@ -383,15 +382,101 @@ mvpolyT::continued_fractions(long maxden) {
         rational.canonicalize();
         solution.y_exact[k] = rational;
 
-    } 
+    }
+    /*
+     * Evaluate tau is compute the euclidian distance: 
+     * tau^2 = sum_(i,j)(Q_i,j - ~Q_i,j)^2
+     */
+}
+
+/*
+ * Projection into the affine subspace of 
+ * valid gram matrices.
+ */
+// TODO modulo check solution
+// TODO data structure for monomial hash table
+void
+mvpolyT::projection() {
+ if(solution.y_exact.empty()) {
+       throw std::runtime_error("It is necessary to solve first");
+   }
+   
+    std::cout<<"Projection\n------------\n\n"; /*dbg*/
+
+    /*
+     * expoents |-> y index and coefficient
+     */
+    std::map<exps, std::vector<std::pair<unsigned int, coeff>>> monomialindex;
+    unsigned int k = 0;
+    for (unsigned int i = 0; i < mb.size; i++) {
+        for (unsigned int j = i; j < mb.size; j++) {
+            exps product(nvars);
+            for (unsigned int v = 0; v < nvars; v++) {
+                product[v] = mb.monomials[i][v] + mb.monomials[j][v];
+            }
+            coeff c = (i == j) ? 1 : 2;
+            monomialindex[product].push_back({k, c});
+            k++;
+        }
+    }
+
+    for (const auto& item : monomialindex) {
+        /*
+         * gamma = alpha + beta (tuples of expoents) 
+         * entries that contribute to the monomial
+         * in final polynomial
+         */
+        const exps& gamma = item.first;
+        const auto& entries = item.second;
+
+        /*
+         * projection divisor
+         */
+        coeff n_gamma = 0;
+        coeff current_val = 0;
+
+        for (const auto& entry : entries) {
+            unsigned int k = entry.first;
+            coeff mult = entry.second;
+
+            n_gamma += mult; 
+            current_val += mult * solution.y_exact[k]; 
+        }
+
+        /*
+         * At original polynomial
+         */
+        coeff target_val = 0;
+        auto target_it = terms.find(gamma);
+        if (target_it != terms.end()) {
+            target_val = target_it->second;
+        }
+        coeff error = current_val - target_val;
+        
+        std::cout<<error<<'\n'; /*dbg*/
+
+        /*
+         * Apply correction
+         */
+        if (error != 0) {
+            coeff correction = error / n_gamma;
+            for (const auto& entry : entries) {
+                unsigned int k = entry.first;
+                solution.y_exact[k] -= correction;
+                solution.y_exact[k].canonicalize(); 
+            }
+        }
+    }
 }
 
 void
 mvpolyT::exactify() {
-   if(!solution.solved)
+   if(!solution.solved) {
        throw std::runtime_error("It is necessary to solve first");
-   
+   }
+
    continued_fractions(1e6);
+   projection();
 }
 
 /*
@@ -546,7 +631,6 @@ mvpolyT::LDLT() {
  */
 void 
 mvpolyT::dbg () {
-  std::cout<<"MVPoly\n---------\n\n";
   if (terms.empty()) {
     std::cout<<0<<'\n';
     return;
@@ -587,7 +671,7 @@ mvpolyT::dbg () {
 
 void 
 monomialbasisT::dbg() const {
-  std::cout<<"Monomial basis\n ------------------\n\n";
+  std::cout<<"Monomial basis\n------------------\n\n";
   std::cout<<"Cardinality: |m| = "<<size<<'\n';
   std::cout<<"Max-degree: d = "<<degree<<'\n'; 
   std::cout<<(homogeneous ? "\nThis is a base for a Form" : 
